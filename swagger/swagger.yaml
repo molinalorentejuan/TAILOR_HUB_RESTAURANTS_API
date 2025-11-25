@@ -1,0 +1,518 @@
+openapi: 3.0.0
+info:
+  title: Tailor Hub Restaurants API
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:3000
+  - url: https://tailorbackendtest2-production.up.railway.app
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    # -------------------------
+    # GENERIC
+    # -------------------------
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: OK
+
+    ErrorResponse:
+      type: object
+      properties:
+        message: { type: string }
+        code: { type: string }
+        status: { type: integer }
+      example:
+        message: Invalid data
+        code: VALIDATION_ERROR
+        status: 400
+
+    # -------------------------
+    # USER
+    # -------------------------
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string, format: email }
+        role: { type: string, enum: [USER, ADMIN] }
+
+    # -------------------------
+    # AUTH
+    # -------------------------
+    AuthLoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    AuthRegisterRequest:
+      type: object
+      required: [ email, password, name ]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+        name: { type: string }
+
+    AuthResponse:
+      type: object
+      properties:
+        token: { type: string }
+        user:
+          $ref: "#/components/schemas/User"
+
+    # -------------------------
+    # ADMIN STATS
+    # -------------------------
+    AdminStats:
+      type: object
+      properties:
+        users_count: { type: integer }
+        reviews_count: { type: integer }
+        restaurants_count: { type: integer }
+        top_rated:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              name: { type: string }
+              cuisine_type: { type: string, nullable: true }
+              neighborhood: { type: string, nullable: true }
+              avg_rating: { type: number, nullable: true }
+        most_reviewed:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              name: { type: string }
+              cuisine_type: { type: string, nullable: true }
+              reviews: { type: integer }
+
+    # -------------------------
+    # RESTAURANTS
+    # -------------------------
+    OpeningHours:
+      type: object
+      properties:
+        day: { type: string }
+        hours: { type: string }
+
+    Restaurant:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        neighborhood: { type: string, nullable: true }
+        cuisine_type: { type: string, nullable: true }
+        rating: { type: number }
+        address: { type: string, nullable: true }
+        photograph: { type: string, nullable: true }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        image: { type: string, nullable: true }
+        hours:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpeningHours"
+
+    RestaurantCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        neighborhood: { type: string, nullable: true }
+        cuisine_type: { type: string, nullable: true }
+        address: { type: string, nullable: true }
+        photograph: { type: string, nullable: true }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        image: { type: string, nullable: true }
+        hours:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpeningHours"
+
+    RestaurantUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        neighborhood: { type: string, nullable: true }
+        cuisine_type: { type: string, nullable: true }
+        address: { type: string, nullable: true }
+        photograph: { type: string, nullable: true }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        image: { type: string, nullable: true }
+        hours:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpeningHours"
+
+    RestaurantsQuery:
+      type: object
+      properties:
+        page: { type: integer, minimum: 1, default: 1 }
+        limit: { type: integer, minimum: 1, maximum: 100, default: 10 }
+        cuisine_type: { type: string }
+        neighborhood: { type: string }
+        rating: { type: number, minimum: 0, maximum: 5 }
+        sort:
+          type: string
+          example: "rating:desc"
+
+    # -------------------------
+    # REVIEWS
+    # -------------------------
+    Review:
+      type: object
+      properties:
+        id: { type: integer }
+        restaurant_id: { type: integer }
+        user_id: { type: integer }
+        rating: { type: integer }
+        comments: { type: string, nullable: true }
+        created_at: { type: string }
+
+    ReviewCreate:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer }
+        comments: { type: string, nullable: true }
+
+    ReviewUpdate:
+      type: object
+      properties:
+        rating: { type: integer }
+        comments: { type: string, nullable: true }
+
+    # -------------------------
+    # FAVORITES
+    # -------------------------
+    Favorite:
+      type: object
+      properties:
+        restaurant_id: { type: integer }
+
+paths:
+
+  # -------------------------
+  # HEALTH
+  # -------------------------
+  /health:
+    get:
+      summary: Health check
+      tags: [System]
+      responses:
+        "200":
+          description: OK
+
+  # -------------------------
+  # AUTH
+  # -------------------------
+  /auth/register:
+    post:
+      summary: Register a user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthRegisterRequest"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/login:
+    post:
+      summary: Login
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthLoginRequest"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  # -------------------------
+  # RESTAURANTS
+  # -------------------------
+  /restaurants:
+    get:
+      summary: List restaurants
+      tags: [Restaurants]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+        - in: query
+          name: cuisine_type
+          schema: { type: string }
+        - in: query
+          name: neighborhood
+          schema: { type: string }
+        - in: query
+          name: rating
+          schema: { type: number, minimum: 0, maximum: 5 }
+        - in: query
+          name: sort
+          schema: { type: string, example: "rating:desc" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Restaurant"
+
+  /restaurants/{restaurant_id}:
+    get:
+      summary: Get restaurant by ID
+      tags: [Restaurants]
+      parameters:
+        - in: path
+          name: restaurant_id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Restaurant"
+
+  /restaurants/{restaurant_id}/reviews:
+    get:
+      summary: List reviews for a restaurant
+      tags: [Reviews]
+      parameters:
+        - in: path
+          name: restaurant_id
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+
+    post:
+      summary: Create review
+      tags: [Reviews]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: restaurant_id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewCreate"
+      responses:
+        "201":
+          description: Created
+
+  # -------------------------
+  # ADMIN
+  # -------------------------
+  /admin/stats:
+    get:
+      summary: Get admin statistics
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/restaurants:
+    post:
+      summary: Create restaurant
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestaurantCreate"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/restaurants/{restaurant_id}:
+    put:
+      summary: Update restaurant
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: restaurant_id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestaurantUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+    delete:
+      summary: Delete restaurant
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: restaurant_id
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # -------------------------
+  # ME
+  # -------------------------
+  /me:
+    get:
+      summary: Get authenticated user
+      tags: [ Me ]
+      security: [ { bearerAuth: [ ] } ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /me/reviews:
+    get:
+      summary: Reviews created by the authenticated user
+      tags: [ Me ]
+      security: [ { bearerAuth: [ ] } ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+
+  /me/reviews/{review_id}:
+    put:
+      summary: Update my review
+      tags: [ Me ]
+      security: [ { bearerAuth: [ ] } ]
+      parameters:
+        - in: path
+          name: review_id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewUpdate"
+      responses:
+        "200": { description: Updated }
+
+    delete:
+      summary: Delete my review
+      tags: [ Me ]
+      security: [ { bearerAuth: [ ] } ]
+      parameters:
+        - in: path
+          name: review_id
+          required: true
+          schema: { type: integer }
+      responses:
+        "204": { description: Deleted }
+  # -------------------------
+  # FAVORITES
+  # -------------------------
+  /me/favorites/{restaurant_id}:
+    post:
+      summary: Add restaurant to favorites
+      tags: [Favorites]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: restaurant_id
+          schema: { type: integer }
+      responses:
+        "201": { description: Added }
+
+    delete:
+      summary: Remove restaurant from favorites
+      tags: [Favorites]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: restaurant_id
+          schema: { type: integer }
+      responses:
+        "204": { description: Removed }
+
+  /me/favorites:
+    get:
+      summary: List my favorite restaurants
+      tags: [Favorites]
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Restaurant"
